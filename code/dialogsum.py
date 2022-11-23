@@ -73,9 +73,9 @@ class dialog_ds(Dataset):
 
     def __getitem__(self, idx):
         return {
-            "input_ids": torch.tensor(self.inputs[idx]),
-            "labels": torch.tensor(self.labels[idx]),
-            "attention_mask": torch.tensor(self.text_tokenized[idx]["attention_mask"]),
+            "input_ids": (self.inputs[idx]),
+            "labels": (self.labels[idx]),
+            "attention_mask": (self.text_tokenized[idx]["attention_mask"]),
         }
 
 
