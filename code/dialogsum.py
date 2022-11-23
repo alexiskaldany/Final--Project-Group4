@@ -26,11 +26,11 @@ val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
-output_dir = Path("output").absolute()
+output_dir = Path("output/test").absolute()
 print(output_dir)
 
 ### Configs
-max_len = 2048
+max_len = 1024
 batch_size = 8
 
 from torch.utils.data import Dataset
@@ -180,7 +180,9 @@ class dialogTrainer:
             logits = output.logits
             predicted_tokens = torch.argmax(logits, dim=-1)
             decoded = self.tokenizer.decode(
-                predicted_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True
+                predicted_tokens[0],
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
             )
             pred_summary.append(decoded)
             rouge_1.append(
