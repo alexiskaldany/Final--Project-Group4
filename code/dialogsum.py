@@ -16,17 +16,17 @@ from pathlib import Path
 import pandas as pd
 import os
 
-data_dir = Path("DATA").absolute()
+data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:1000]
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:500]
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
-output_dir = Path("OUTPUT").absolute()
+output_dir = Path("output").absolute()
 print(output_dir)
 
 ### Configs
@@ -84,7 +84,8 @@ from transformers import (
     T5ForConditionalGeneration,
     T5Config,
     Seq2SeqTrainingArguments,
-    Seq2SeqTrainer,get_scheduler
+    Seq2SeqTrainer,
+    get_scheduler,
 )
 from torch.utils.data import DataLoader
 from evaluate import evaluator
@@ -102,14 +103,6 @@ train_ds = dialog_ds(train, tokenizer, max_len)
 val_ds = dialog_ds(val, tokenizer, max_len)
 test_ds = dialog_ds(test, tokenizer, max_len)
 
-# print([x.shape for x in train_ds.__getitem__(0).values()])
-# print([x.shape for x in val_ds.__getitem__(0).values()])
-# training_args = Seq2SeqTrainingArguments(output_dir=output_dir)
-# trainer = Seq2SeqTrainer(model=model,
-#     train_dataset=train_ds, eval_dataset=val_ds,tokenizer=tokenizer, args=training_args,compute_metrics=summarization_evaluator)
-
-
-# trainer.train()
 train_input = tokenizer(
     train["text"][0],
     padding=True,
@@ -141,7 +134,7 @@ train_input["labels"] = tokenizer(
 
 
 class dialogTrainer:
-    def __init__(self, model, tokenizer,max_len):
+    def __init__(self, model, tokenizer, max_len):
         """Loads model, tokenizer,max_len into the trainer"""
         self.model = model
         self.tokenizer = tokenizer
@@ -153,6 +146,7 @@ class dialogTrainer:
         if not torch.cuda.is_available():
             self.device = torch.device("cpu")
         self.model.to(self.device)
+
     def load_train_val_test(self, train: Dataset, val: Dataset, test: Dataset):
         """Loads train, val, and test data into the trainer"""
         self.train = train
@@ -168,6 +162,7 @@ class dialogTrainer:
         self.output_dir = output_dir
         self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs
         self.tqdm_bar = tqdm(range(self.number_of_steps))
+
     def evaluate(self):
         """Evaluates the model on a dataset"""
         eval_df = pd.DataFrame(columns=["text", "summary", "pred_summary", "rouge1"])
@@ -185,7 +180,7 @@ class dialogTrainer:
             logits = output.logits
             predicted_tokens = torch.argmax(logits, dim=-1)
             decoded = self.tokenizer.decode(
-                predicted_tokens[0], skip_special_tokens=True
+                predicted_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True
             )
             pred_summary.append(decoded)
             rouge_1.append(
@@ -215,16 +210,17 @@ class dialogTrainer:
                 self.optimizer.step()
                 self.optimizer.zero_grad()
             self.evaluate()
+
     def save_model(self):
         """Saves the model"""
         self.model.save_pretrained(self.output_dir)
         self.tokenizer.save_pretrained(self.output_dir)
         concat_eval_df = pd.concat(self.eval_dfs)
         concat_eval_df.to_csv(os.path.join(self.output_dir, "eval_df.csv"))
-    
+
+
 dtrainer = dialogTrainer(model, tokenizer, max_len)
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
-dtrainer.load_training_args(lr=1e-5, epochs=2, output_dir=output_dir)
+dtrainer.load_training_args(lr=1e-5, epochs=5, output_dir=output_dir)
 dtrainer.training()
 dtrainer.save_model()
-
