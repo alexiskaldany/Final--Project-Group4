@@ -14,28 +14,24 @@ Using "t5-base" model from huggingface's transformers library.
 ### Loading data
 from pathlib import Path
 import pandas as pd
-import os
 
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:100]
+)
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:10]
+)
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
-output_dir = Path("output/test").absolute()
+output_dir = Path("output").absolute()
 # print(output_dir)
 
 ### Configs
 max_len = 1024
-batch_size = 8
 
 from torch.utils.data import Dataset
-
-
 class dialog_ds(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
         self.id = dataframe["id"]
@@ -95,39 +91,38 @@ from tqdm import tqdm
 config = T5Config.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
 tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=max_len)
-
 rouge = evaluate.load('rouge')
 train_ds = dialog_ds(train, tokenizer, max_len)
 val_ds = dialog_ds(val, tokenizer, max_len)
 test_ds = dialog_ds(test, tokenizer, max_len)
 
-train_input = tokenizer(
-    train["text"][0],
-    padding=True,
-    truncation=True,
-    max_length=max_len,
-    return_tensors="pt",
-)
-train_input["labels"] = tokenizer(
-    train["summary"][0],
-    padding=True,
-    truncation=True,
-    max_length=max_len,
-    return_tensors="pt",
-)["input_ids"]
+# train_input = tokenizer(
+#     train["text"][0],
+#     padding=True,
+#     truncation=True,
+#     max_length=max_len,
+#     return_tensors="pt",
+# )
+# train_input["labels"] = tokenizer(
+#     train["summary"][0],
+#     padding=True,
+#     truncation=True,
+#     max_length=max_len,
+#     return_tensors="pt",
+# )["input_ids"]
 
 # print(train_input.keys())
 # print([x.shape for x in train_input.values()])
-output = model(**train_input)
-print(output.loss.item())
-logits = output.logits
-predicted_tokens = torch.argmax(logits, dim=-1)
-print(predicted_tokens)
-decoded = tokenizer.decode(predicted_tokens[0], skip_special_tokens=True)
-print(decoded)
+# output = model(**train_input)
+# print(output.loss.item())
+# logits = output.logits
+# predicted_tokens = torch.argmax(logits, dim=-1)
+# print(predicted_tokens)
+# decoded = tokenizer.decode(predicted_tokens[0], skip_special_tokens=True)
+# print(decoded)
 
-metrics = rouge.compute(predictions=[decoded], references=[train["summary"][0]])
-print(metrics)
+# metrics = rouge.compute(predictions=[decoded], references=[train["summary"][0]])
+# print(metrics)
 
 # rouge = load_metric('rouge')
 # rouge_test = rouge.compute(predictions=[decoded], references=[train['summary'][0]])
@@ -154,13 +149,17 @@ class dialogTrainer:
         self.val = val
         self.test = test
 
-    def load_training_args(self, lr, epochs, output_dir):
+    def load_training_args(self, lr, epochs, output_dir,current_run,previous_run: str = None):
         """Loads training arguments into the trainer"""
         self.lr = lr
         self.epochs = epochs
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
         self.metric = evaluate.load('rouge')
         self.output_dir = output_dir
+        self.current_run = current_run
+        self.current_output_path = self.output_dir / self.current_run
+        self.previous_run = previous_run
+        self.previous_output_path = self.output_dir / self.previous_run
         self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs
         self.tqdm_bar = tqdm(range(self.number_of_steps))
 
@@ -208,12 +207,13 @@ class dialogTrainer:
         eval_df["epoch"] = (epoch + 1)
         self.eval_dfs.append(eval_df)
 
+
     def training(self):
         """Trains the model"""
-        self.train_dfs = []
+        # self.train_dfs = []
         for epoch in range(self.epochs):
             mode = "train" 
-            loss = []
+            # loss = []
             for index, input in enumerate(self.train):
                 self.tqdm_bar.update(1)
                 input_ids = input["input_ids"].to(self.device)
@@ -223,31 +223,91 @@ class dialogTrainer:
                     input_ids=input_ids, labels=labels, attention_mask=attention_mask
                 )
                 output.loss.backward()
-                loss.append(output.loss.item())
+                # loss.append(output.loss.item())
                 self.optimizer.step()
-                self.optimizer.zero_grad()
-            train_df = pd.DataFrame()
-            train_df["id"] = self.train.id
-            train_df["mode"] = mode
-            train_df["text"] = self.train.text
-            train_df["summary"] = self.train.summary
-            train_df["loss"] = loss
-            train_df["epoch"] = epoch + 1
-            self.train_dfs.append(train_df)
+                # self.optimizer.zero_grad()
+            # train_df = pd.DataFrame()
+            # train_df["id"] = self.train.id
+            # train_df["mode"] = mode
+            # train_df["text"] = self.train.text
+            # train_df["summary"] = self.train.summary
+            # train_df["loss"] = loss
+            # train_df["epoch"] = epoch + 1
+            # self.train_dfs.append(train_df)
             self.evaluate(epoch=epoch)
+            self.save_model()
+        self.tqdm_bar.close()
+        self.save_model()
+        # self.train_output = pd.concat(self.train_dfs)
             
+    def run_test(self):
+        """
+        Runs the model on the test set
+        Save all output
+        """
+        self.output_list = []
+        test_bar = tqdm(range(len(self.test)))
+        for index, input in enumerate(self.test):
+            row_dict = {"text": self.test.text[index], "summary": self.test.summary[index]}
+            test_bar.update(1)
+            input_ids = input["input_ids"].to(self.device)
+            row_dict["text_tokens"] = input_ids
+            row_dict["label_tokens"] = input["labels"]
+            labels = input["labels"].to(self.device)
+            attention_mask = input["attention_mask"].to(self.device)
+            output = self.model(
+                input_ids=input_ids, labels=labels, attention_mask=attention_mask
+            )
+            logits = output.logits
+            predicted_tokens = torch.argmax(logits, dim=-1)
+            row_dict["pred_summary_tokens"] = predicted_tokens
+            decoded = self.tokenizer.decode(predicted_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            row_dict["pred_summary"] = decoded
+            rouge = self.metric.compute(predictions=[decoded], references=[self.test.summary[index]])
+            row_dict["rouge1"] = rouge["rouge1"]
+            row_dict["rouge2"] = rouge["rouge2"]
+            row_dict["rougeL"] = rouge["rougeL"]
+            row_dict["loss"] = output.loss.item()
+            self.output_list.append(row_dict)
+        self.output_df = pd.DataFrame(self.output_list)
+        self.averages_df = pd.DataFrame(self.output_df[["rouge1", "rouge2", "rougeL", "loss"]].mean()).T
+        self.output_df.to_csv(self.current_output_path / "full_test_output.csv")
+        self.averages_df.to_csv(self.current_output_path / "averages_test_output.csv")
+        
     def save_model(self):
         """Saves the model"""
-        self.model.save_pretrained(self.output_dir)
-        self.tokenizer.save_pretrained(self.output_dir)
+        self.model.save_pretrained(self.current_output_path)
+        self.tokenizer.save_pretrained(self.current_output_path)
         concat_eval_df = pd.concat(self.eval_dfs)
-        concat_eval_df.to_csv(os.path.join(self.output_dir, "eval_df.csv"))
-        concat_train_df = pd.concat(self.train_dfs)
-        concat_train_df.to_csv(os.path.join(self.output_dir, "train_df.csv"))
+        concat_eval_df.to_csv(self.current_output_path / "eval_df.csv")
+        # concat_train_df = pd.concat(self.train_dfs)
+        # concat_train_df.to_csv(os.path.join(self.output_dir, "train_df.csv"))
+    
+    def load_checkpoint(self, checkpoint_path):
+        """Loads the model from a checkpoint"""
+        self.model = T5ForConditionalGeneration.from_pretrained(checkpoint_path)
+        self.tokenizer = T5Tokenizer.from_pretrained(checkpoint_path)
+        self.model.to(self.device)
+        
 
 
-dtrainer = dialogTrainer(model, tokenizer, max_len)
+
+            
+current_run = "ubuntu"
+# previous_run = "run_1"
+# checkpoint_path = output_dir / previous_run
+new_checkpoint_path = output_dir / current_run
+# dtrainer = dialogTrainer(model, tokenizer, max_len)
+# dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
+# dtrainer.load_training_args(lr=1e-5, epochs=2, output_dir=output_dir)
+# dtrainer.training()
+# dtrainer.run_test()
+# dtrainer.save_model(current_run)
+
+dtrainer  = dialogTrainer(model, tokenizer, max_len)
+# dtrainer.load_checkpoint(checkpoint_path)
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
-dtrainer.load_training_args(lr=1e-5, epochs=25, output_dir=output_dir)
+dtrainer.load_training_args(lr=1e-5, epochs=5, output_dir=output_dir,current_run=current_run)
 dtrainer.training()
-dtrainer.save_model()
+dtrainer.run_test()
+dtrainer.save_model(new_checkpoint_path)
