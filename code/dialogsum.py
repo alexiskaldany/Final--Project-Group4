@@ -18,13 +18,13 @@ import pandas as pd
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:10]
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:10]
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:10]
 output_dir = Path("output").absolute()
 # print(output_dir)
 
@@ -136,6 +136,7 @@ class dialogTrainer:
         self.tokenizer = tokenizer
         self.max_len = max_len
         self.eval_dfs = []
+        self.eval_average_dfs = []
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
             torch.cuda.empty_cache()
@@ -149,7 +150,7 @@ class dialogTrainer:
         self.val = val
         self.test = test
 
-    def load_training_args(self, lr, epochs, output_dir,current_run,previous_run: str = None):
+    def load_training_args(self, lr, epochs, output_dir,current_run,previous_run: str = ""):
         """Loads training arguments into the trainer"""
         self.lr = lr
         self.epochs = epochs
@@ -160,7 +161,7 @@ class dialogTrainer:
         self.current_output_path = self.output_dir / self.current_run
         self.previous_run = previous_run
         self.previous_output_path = self.output_dir / self.previous_run
-        self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs
+        self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(self.test)
         self.tqdm_bar = tqdm(range(self.number_of_steps))
 
     def evaluate(self,epoch):
@@ -205,8 +206,10 @@ class dialogTrainer:
         eval_df["rougeL"] = rouge_l
         eval_df["loss"] = loss
         eval_df["epoch"] = (epoch + 1)
+        average = pd.DataFrame(eval_df[["loss", "rouge1", "rouge2", "rougeL"]].mean()).T
+        print(average)
         self.eval_dfs.append(eval_df)
-
+        self.eval_average_dfs.append(average)
 
     def training(self):
         """Trains the model"""
@@ -246,10 +249,10 @@ class dialogTrainer:
         Save all output
         """
         self.output_list = []
-        test_bar = tqdm(range(len(self.test)))
+        # test_bar = tqdm(range(len(self.test)))
         for index, input in enumerate(self.test):
             row_dict = {"text": self.test.text[index], "summary": self.test.summary[index]}
-            test_bar.update(1)
+            self.tqdm_bar.update(1)
             input_ids = input["input_ids"].to(self.device)
             row_dict["text_tokens"] = input_ids
             row_dict["label_tokens"] = input["labels"]
@@ -271,6 +274,8 @@ class dialogTrainer:
             self.output_list.append(row_dict)
         self.output_df = pd.DataFrame(self.output_list)
         self.averages_df = pd.DataFrame(self.output_df[["rouge1", "rouge2", "rougeL", "loss"]].mean()).T
+        eval_averages_df = pd.concat(self.eval_average_dfs,axis=0)
+        eval_averages_df.to_csv(self.current_output_path / "eval_averages.csv", index=False)
         self.output_df.to_csv(self.current_output_path / "full_test_output.csv")
         self.averages_df.to_csv(self.current_output_path / "averages_test_output.csv")
         
@@ -290,24 +295,15 @@ class dialogTrainer:
         self.model.to(self.device)
         
 
-
-
-            
+       
 current_run = "ubuntu"
 # previous_run = "run_1"
 # checkpoint_path = output_dir / previous_run
 new_checkpoint_path = output_dir / current_run
-# dtrainer = dialogTrainer(model, tokenizer, max_len)
-# dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
-# dtrainer.load_training_args(lr=1e-5, epochs=2, output_dir=output_dir)
-# dtrainer.training()
-# dtrainer.run_test()
-# dtrainer.save_model(current_run)
-
 dtrainer  = dialogTrainer(model, tokenizer, max_len)
 # dtrainer.load_checkpoint(checkpoint_path)
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
-dtrainer.load_training_args(lr=1e-5, epochs=5, output_dir=output_dir,current_run=current_run)
+dtrainer.load_training_args(lr=1e-5, epochs=30, output_dir=output_dir,current_run=current_run, previous_run="")
 dtrainer.training()
 dtrainer.run_test()
-dtrainer.save_model(new_checkpoint_path)
+
