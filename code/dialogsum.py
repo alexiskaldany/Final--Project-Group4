@@ -18,13 +18,13 @@ import pandas as pd
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:10]
+)
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:10]
+)
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:10]
+)
 output_dir = Path("output").absolute()
 # print(output_dir)
 
@@ -32,6 +32,8 @@ output_dir = Path("output").absolute()
 max_len = 1024
 
 from torch.utils.data import Dataset
+
+
 class dialog_ds(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
         self.id = dataframe["id"]
@@ -91,7 +93,7 @@ from tqdm import tqdm
 config = T5Config.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
 tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=max_len)
-rouge = evaluate.load('rouge')
+rouge = evaluate.load("rouge")
 train_ds = dialog_ds(train, tokenizer, max_len)
 val_ds = dialog_ds(val, tokenizer, max_len)
 test_ds = dialog_ds(test, tokenizer, max_len)
@@ -137,6 +139,7 @@ class dialogTrainer:
         self.max_len = max_len
         self.eval_dfs = []
         self.eval_average_dfs = []
+        self.train_dfs = []
         if torch.cuda.is_available():
             self.device = torch.device("cuda")
             torch.cuda.empty_cache()
@@ -150,23 +153,35 @@ class dialogTrainer:
         self.val = val
         self.test = test
 
-    def load_training_args(self, lr, epochs, output_dir,current_run,previous_run: str = ""):
-        """Loads training arguments into the trainer"""
-        self.lr = lr
+    def load_training_args(
+        self, epochs, output_dir, current_run, previous_run: str = ""
+    ):
+        """
+        Loads training arguments into the trainer
+        epochs: Number of epochs to train
+        output_dir: Directory to save model checkpoints
+        optimizer: Optimizer to use for training
+        current_run: Current run number
+        previous_run: Previous run number
+        """
         self.epochs = epochs
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=lr)
-        self.metric = evaluate.load('rouge')
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
+        self.metric = evaluate.load("rouge")
         self.output_dir = output_dir
         self.current_run = current_run
         self.current_output_path = self.output_dir / self.current_run
         self.previous_run = previous_run
         self.previous_output_path = self.output_dir / self.previous_run
-        self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(self.test)
+        if not self.current_output_path.exists():
+            self.current_output_path.mkdir(parents=True)
+        self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(
+            self.test
+        )
         self.tqdm_bar = tqdm(range(self.number_of_steps))
 
-    def evaluate(self,epoch):
+    def evaluate(self, epoch):
         """Evaluates the model on a dataset"""
-        eval_df = pd.DataFrame(columns=["id","text", "summary"])
+        eval_df = pd.DataFrame(columns=["id", "text", "summary"])
         summary = self.val.summary
         mode = "val"
         id = self.val.id
@@ -192,7 +207,9 @@ class dialogTrainer:
                 clean_up_tokenization_spaces=True,
             )
             pred_summary.append(decoded)
-            rouge = self.metric.compute(predictions=[decoded], references=[summary[index]])
+            rouge = self.metric.compute(
+                predictions=[decoded], references=[summary[index]]
+            )
             rouge_1.append(rouge["rouge1"])
             rouge_2.append(rouge["rouge2"])
             rouge_l.append(rouge["rougeL"])
@@ -205,18 +222,19 @@ class dialogTrainer:
         eval_df["rouge2"] = rouge_2
         eval_df["rougeL"] = rouge_l
         eval_df["loss"] = loss
-        eval_df["epoch"] = (epoch + 1)
-        average = pd.DataFrame(eval_df[["loss", "rouge1", "rouge2", "rougeL"]].mean()).T
-        print(average)
-        self.eval_dfs.append(eval_df)
+        eval_df["epoch"] = epoch + 1
+        average = pd.DataFrame(eval_df[["loss", "rouge1", "rouge2", "rougeL"]].mean()).T.round(4)
+        self.eval_dfs.append(eval_df.round(4))
         self.eval_average_dfs.append(average)
 
     def training(self):
         """Trains the model"""
         # self.train_dfs = []
+        
         for epoch in range(self.epochs):
-            mode = "train" 
-            # loss = []
+            loss_list = []
+            rouge1_list = []
+            mode = "train"
             for index, input in enumerate(self.train):
                 self.tqdm_bar.update(1)
                 input_ids = input["input_ids"].to(self.device)
@@ -226,36 +244,44 @@ class dialogTrainer:
                     input_ids=input_ids, labels=labels, attention_mask=attention_mask
                 )
                 output.loss.backward()
-                # loss.append(output.loss.item())
+                predicted_tokens = torch.argmax(output.logits, dim=-1)
+                decoded = self.tokenizer.decode(
+                    predicted_tokens[0],
+                    skip_special_tokens=True,
+                    clean_up_tokenization_spaces=True,
+                )
+                rouge1_list.append(self.metric.compute(
+                predictions=[decoded], references=[self.train.summary[index]]
+            )["rouge1"])
+                loss_list.append(output.loss.item())
                 self.optimizer.step()
-                # self.optimizer.zero_grad()
-            # train_df = pd.DataFrame()
-            # train_df["id"] = self.train.id
-            # train_df["mode"] = mode
-            # train_df["text"] = self.train.text
-            # train_df["summary"] = self.train.summary
-            # train_df["loss"] = loss
-            # train_df["epoch"] = epoch + 1
-            # self.train_dfs.append(train_df)
+                self.optimizer.zero_grad()
+            df = pd.DataFrame(columns=["index","epoch","rouge1","loss"])
+            df["index"] = range(len(loss_list))
+            df["epoch"] = epoch + 1
+            df["rouge1"] = rouge1_list
+            df["loss"] = loss_list
+            self.train_dfs.append(df.round(4))
             self.evaluate(epoch=epoch)
             self.save_model()
+        self.run_test()
         self.tqdm_bar.close()
         self.save_model()
-        # self.train_output = pd.concat(self.train_dfs)
-            
+
     def run_test(self):
         """
         Runs the model on the test set
         Save all output
         """
         self.output_list = []
-        # test_bar = tqdm(range(len(self.test)))
         for index, input in enumerate(self.test):
-            row_dict = {"text": self.test.text[index], "summary": self.test.summary[index]}
+            row_dict = {
+                "summary": self.test.summary[index],
+            }
             self.tqdm_bar.update(1)
             input_ids = input["input_ids"].to(self.device)
-            row_dict["text_tokens"] = input_ids
-            row_dict["label_tokens"] = input["labels"]
+            # row_dict["text_tokens"] = input_ids
+            # row_dict["label_tokens"] = input["labels"]
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
             output = self.model(
@@ -263,47 +289,57 @@ class dialogTrainer:
             )
             logits = output.logits
             predicted_tokens = torch.argmax(logits, dim=-1)
-            row_dict["pred_summary_tokens"] = predicted_tokens
-            decoded = self.tokenizer.decode(predicted_tokens[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+            # row_dict["pred_summary_tokens"] = predicted_tokens
+            decoded = self.tokenizer.decode(
+                predicted_tokens[0],
+                skip_special_tokens=True,
+                clean_up_tokenization_spaces=True,
+            )
             row_dict["pred_summary"] = decoded
-            rouge = self.metric.compute(predictions=[decoded], references=[self.test.summary[index]])
+            rouge = self.metric.compute(
+                predictions=[decoded], references=[self.test.summary[index]]
+            )
             row_dict["rouge1"] = rouge["rouge1"]
             row_dict["rouge2"] = rouge["rouge2"]
             row_dict["rougeL"] = rouge["rougeL"]
             row_dict["loss"] = output.loss.item()
             self.output_list.append(row_dict)
-        self.output_df = pd.DataFrame(self.output_list)
-        self.averages_df = pd.DataFrame(self.output_df[["rouge1", "rouge2", "rougeL", "loss"]].mean()).T
-        eval_averages_df = pd.concat(self.eval_average_dfs,axis=0)
-        eval_averages_df.to_csv(self.current_output_path / "eval_averages.csv", index=False)
+        self.output_df = pd.DataFrame(self.output_list).round(4)
+        self.averages_df = pd.DataFrame(
+            self.output_df[["rouge1", "rouge2", "rougeL", "loss"]].mean()
+        ).T.round(4)
+        eval_averages_df = pd.concat(self.eval_average_dfs, axis=0).round(4)
+        eval_averages_df.to_csv(
+            self.current_output_path / "eval_averages.csv", index=False
+        )
         self.output_df.to_csv(self.current_output_path / "full_test_output.csv")
         self.averages_df.to_csv(self.current_output_path / "averages_test_output.csv")
-        
+
     def save_model(self):
         """Saves the model"""
+        train_dfs = pd.concat(self.train_dfs, axis=0).round(4)
+        train_dfs.to_csv(self.current_output_path / "train_dfs.csv", index=False)
         self.model.save_pretrained(self.current_output_path)
         self.tokenizer.save_pretrained(self.current_output_path)
-        concat_eval_df = pd.concat(self.eval_dfs)
+        concat_eval_df = pd.concat(self.eval_dfs).round(4)
         concat_eval_df.to_csv(self.current_output_path / "eval_df.csv")
         # concat_train_df = pd.concat(self.train_dfs)
         # concat_train_df.to_csv(os.path.join(self.output_dir, "train_df.csv"))
-    
+
     def load_checkpoint(self, checkpoint_path):
         """Loads the model from a checkpoint"""
         self.model = T5ForConditionalGeneration.from_pretrained(checkpoint_path)
         self.tokenizer = T5Tokenizer.from_pretrained(checkpoint_path)
         self.model.to(self.device)
-        
 
-       
-current_run = "ubuntu"
+
+current_run = "ubuntu_1"
 # previous_run = "run_1"
 # checkpoint_path = output_dir / previous_run
-new_checkpoint_path = output_dir / current_run
-dtrainer  = dialogTrainer(model, tokenizer, max_len)
+dtrainer = dialogTrainer(model, tokenizer, max_len)
 # dtrainer.load_checkpoint(checkpoint_path)
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
-dtrainer.load_training_args(lr=1e-5, epochs=30, output_dir=output_dir,current_run=current_run, previous_run="")
+dtrainer.load_training_args(
+    epochs=10, output_dir=output_dir, current_run=current_run, previous_run=""
+)
 dtrainer.training()
-dtrainer.run_test()
-
