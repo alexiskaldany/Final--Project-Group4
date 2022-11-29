@@ -29,8 +29,11 @@ output_dir = Path("output").absolute()
 # print(output_dir)
 
 ### Configs
-max_len = 1024
-
+NUM_EPOCHS = 10
+MAX_LEN = 1024
+current_run = "ubuntu_10_epochs_full"
+previous run = ""
+previous_checkpoint = output_dir / previous_run
 from torch.utils.data import Dataset
 
 
@@ -92,11 +95,11 @@ from tqdm import tqdm
 # Download configuration from huggingface.co and cache.
 config = T5Config.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
-tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=max_len)
+tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=MAX_LEN)
 rouge = evaluate.load("rouge")
-train_ds = dialog_ds(train, tokenizer, max_len)
-val_ds = dialog_ds(val, tokenizer, max_len)
-test_ds = dialog_ds(test, tokenizer, max_len)
+train_ds = dialog_ds(train, tokenizer, MAX_LEN)
+val_ds = dialog_ds(val, tokenizer, MAX_LEN)
+test_ds = dialog_ds(test, tokenizer, MAX_LEN)
 
 # train_input = tokenizer(
 #     train["text"][0],
@@ -180,7 +183,9 @@ class dialogTrainer:
         self.tqdm_bar = tqdm(range(self.number_of_steps))
 
     def evaluate(self, epoch):
-        """Evaluates the model on a dataset"""
+        """
+        Evaluates the model on a dataset
+        """
         eval_df = pd.DataFrame(columns=["id", "text", "summary"])
         summary = self.val.summary
         mode = "val"
@@ -333,13 +338,10 @@ class dialogTrainer:
         self.model.to(self.device)
 
 
-current_run = "ubuntu_1"
-# previous_run = "run_1"
-# checkpoint_path = output_dir / previous_run
 dtrainer = dialogTrainer(model, tokenizer, max_len)
 # dtrainer.load_checkpoint(checkpoint_path)
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
 dtrainer.load_training_args(
-    epochs=10, output_dir=output_dir, current_run=current_run, previous_run=""
+    epochs=NUM_EPOCHS, output_dir=output_dir, current_run=current_run, previous_run=""
 )
 dtrainer.training()
