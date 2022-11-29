@@ -37,7 +37,7 @@ test = pd.read_csv(Path(data_dir / "test.csv")).rename(
 )
 output_dir = Path("output").absolute()
 current_run = "ubuntu_10_epochs_full"
-previous run = ""
+previous_run = ""
 previous_checkpoint = output_dir / previous_run
 
 ###########
@@ -144,7 +144,7 @@ class dialogTrainer:
         self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(
             self.test
         )
-        self.tqdm_bar = tqdm(range(self.number_of_steps))
+        self.tqdm_bar = tqdm(range(self.number_of_steps)).set_description(f"Using {self.device}")
 
     def evaluate(self, epoch):
         """
@@ -152,7 +152,7 @@ class dialogTrainer:
         """
         eval_df = pd.DataFrame(columns=["id", "text", "summary"])
         summary = self.val.summary
-        mode = "val"
+        self.mode = "val"
         id = self.val.id
         loss = []
         pred_summary = []
@@ -160,7 +160,7 @@ class dialogTrainer:
         rouge_2 = []
         rouge_l = []
         for index, input in enumerate(self.val):
-            self.tqdm_bar.update(1)
+            self.tqdm_bar.update(1).set_postfix(f"Epoch {epoch} {self.mode} {index}")
             input_ids = input["input_ids"].to(self.device)
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
@@ -183,7 +183,7 @@ class dialogTrainer:
             rouge_2.append(rouge["rouge2"])
             rouge_l.append(rouge["rougeL"])
         eval_df["id"] = id
-        eval_df["mode"] = mode
+        eval_df["mode"] = self.mode
         eval_df["text"] = self.val.text
         eval_df["summary"] = self.val.summary
         eval_df["pred_summary"] = pred_summary
@@ -206,9 +206,9 @@ class dialogTrainer:
         for epoch in range(self.epochs):
             loss_list = []
             rouge1_list = []
-            mode = "train"
+            self.mode = "train"
             for index, input in enumerate(self.train):
-                self.tqdm_bar.update(1)
+                self.tqdm_bar.update(1).set_postfix(f"Epoch {epoch} {self.mode} {index}")
                 input_ids = input["input_ids"].to(self.device)
                 labels = input["labels"].to(self.device)
                 attention_mask = input["attention_mask"].to(self.device)
@@ -244,12 +244,13 @@ class dialogTrainer:
         """
         A test loop to generate statistics to analyze the performace of the model
         """
+        self.mode = "test"
         self.output_list = []
         for index, input in enumerate(self.test):
             row_dict = {
                 "summary": self.test.summary[index],
             }
-            self.tqdm_bar.update(1)
+            self.tqdm_bar.update(1).set_postfix(f"Epoch {self.epochs+1} {self.mode} {index}")
             input_ids = input["input_ids"].to(self.device)
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
