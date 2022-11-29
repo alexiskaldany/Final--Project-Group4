@@ -19,11 +19,12 @@ from transformers import (
     T5ForConditionalGeneration,
     T5Config,
 )
-from torch.utils.data import DataLoader,Dataset
+from torch.utils.data import DataLoader, Dataset
 import evaluate
 import torch
 import gc
 from tqdm import tqdm
+
 ###########
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
@@ -50,6 +51,7 @@ model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
 tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=MAX_LEN)
 rouge = evaluate.load("rouge")
 ###########
+
 
 class dialog_ds(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
@@ -93,6 +95,7 @@ class dialog_ds(Dataset):
             "labels": (self.labels[idx]),
             "attention_mask": (self.text_tokenized[idx]["attention_mask"]),
         }
+
 
 class dialogTrainer:
     def __init__(self, model, tokenizer, max_len):
@@ -144,7 +147,9 @@ class dialogTrainer:
         self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(
             self.test
         )
-        self.tqdm_bar = tqdm(range(self.number_of_steps)).set_description(f"Using {self.device}")
+        self.tqdm_bar = tqdm(range(self.number_of_steps)).set_description(
+            f"Using {self.device}"
+        )
 
     def evaluate(self, epoch):
         """
@@ -192,7 +197,9 @@ class dialogTrainer:
         eval_df["rougeL"] = rouge_l
         eval_df["loss"] = loss
         eval_df["epoch"] = epoch + 1
-        average = pd.DataFrame(eval_df[["loss", "rouge1", "rouge2", "rougeL"]].mean()).T.round(4)
+        average = pd.DataFrame(
+            eval_df[["loss", "rouge1", "rouge2", "rougeL"]].mean()
+        ).T.round(4)
         self.eval_dfs.append(eval_df.round(4))
         self.eval_average_dfs.append(average)
 
@@ -202,13 +209,15 @@ class dialogTrainer:
         Also triggers the evaluation, test, and model saving functions
         """
         # self.train_dfs = []
-        
+
         for epoch in range(self.epochs):
             loss_list = []
             rouge1_list = []
             self.mode = "train"
             for index, input in enumerate(self.train):
-                self.tqdm_bar.update(1).set_postfix(f"Epoch {epoch} {self.mode} {index}")
+                self.tqdm_bar.update(1).set_postfix(
+                    f"Epoch {epoch} {self.mode} {index}"
+                )
                 input_ids = input["input_ids"].to(self.device)
                 labels = input["labels"].to(self.device)
                 attention_mask = input["attention_mask"].to(self.device)
@@ -222,13 +231,15 @@ class dialogTrainer:
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=True,
                 )
-                rouge1_list.append(self.metric.compute(
-                predictions=[decoded], references=[self.train.summary[index]]
-            )["rouge1"])
+                rouge1_list.append(
+                    self.metric.compute(
+                        predictions=[decoded], references=[self.train.summary[index]]
+                    )["rouge1"]
+                )
                 loss_list.append(output.loss.item())
                 self.optimizer.step()
                 self.optimizer.zero_grad()
-            df = pd.DataFrame(columns=["index","epoch","rouge1","loss"])
+            df = pd.DataFrame(columns=["index", "epoch", "rouge1", "loss"])
             df["index"] = range(len(loss_list))
             df["epoch"] = epoch + 1
             df["rouge1"] = rouge1_list
@@ -250,7 +261,9 @@ class dialogTrainer:
             row_dict = {
                 "summary": self.test.summary[index],
             }
-            self.tqdm_bar.update(1).set_postfix(f"Epoch {self.epochs+1} {self.mode} {index}")
+            self.tqdm_bar.update(1).set_postfix(
+                f"Epoch {self.epochs+1} {self.mode} {index}"
+            )
             input_ids = input["input_ids"].to(self.device)
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
@@ -304,21 +317,23 @@ class dialogTrainer:
         self.tokenizer = T5Tokenizer.from_pretrained(checkpoint_path)
         self.model.to(self.device)
 
+
 ##############
 train_ds = dialog_ds(train, tokenizer, MAX_LEN)
 val_ds = dialog_ds(val, tokenizer, MAX_LEN)
 test_ds = dialog_ds(test, tokenizer, MAX_LEN)
 
-dtrainer = dialogTrainer(model, tokenizer, max_len)
+dtrainer = dialogTrainer(model, tokenizer, MAX_LEN)
 if LOAD_FROM_CHECKPOINT:
     dtrainer.load_checkpoint(checkpoint_path=previous_checkpoint)
-
 dtrainer.load_train_val_test(train_ds, val_ds, test_ds)
 dtrainer.load_training_args(
-    epochs=NUM_EPOCHS, output_dir=output_dir, current_run=current_run, previous_run=previous_run
+    epochs=NUM_EPOCHS,
+    output_dir=output_dir,
+    current_run=current_run,
+    previous_run=previous_run,
 )
 dtrainer.training()
-
 
 
 ##########################
@@ -353,4 +368,3 @@ dtrainer.training()
 # rouge = load_metric('rouge')
 # rouge_test = rouge.compute(predictions=[decoded], references=[train['summary'][0]])
 # print(rouge_test["rouge1"].mid.fmeasure)
-
