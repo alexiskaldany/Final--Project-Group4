@@ -149,10 +149,11 @@ training_args = Seq2SeqTrainingArguments(
     predict_with_generate=True,
     per_device_train_batch_size=BATCH_SIZE,
     per_device_eval_batch_size=BATCH_SIZE,
-    logging_strategy="epoch",
+    logging_strategy="steps",
+    logging_steps=100,
     resume_from_checkpoint=True,
     save_strategy="epoch",
-    metric_for_best_model="rouge2",
+    disable_tqdm=True,
     
     
 )
