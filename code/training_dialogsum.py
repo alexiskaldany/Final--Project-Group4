@@ -35,20 +35,20 @@ warnings.filterwarnings("ignore")
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:25]
+)
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:10]
+)
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:5]
+)
 output_dir = Path("output").absolute()
-RUN_NAME = "t5-small"
+RUN_NAME = "blenderbot_small-90M"
 run_path = Path(output_dir / RUN_NAME).absolute()
 run_path.mkdir(parents=True, exist_ok=True)
 MAX_LENGTH = 512
-EPOCHS = 3
-BATCH_SIZE = 4
+EPOCHS = 10
+BATCH_SIZE = 8
 
 
 print(output_dir)
@@ -99,8 +99,8 @@ class dialog_ds(Dataset):
         }
 
 
-tokenizer = AutoTokenizer.from_pretrained("t5-small", use_fast=True)
-model = AutoModelForSeq2SeqLM.from_pretrained("t5-small", ignore_mismatched_sizes=True)
+tokenizer = AutoTokenizer.from_pretrained("facebook/blenderbot_small-90M", use_fast=True)
+model = AutoModelForSeq2SeqLM.from_pretrained("facebook/blenderbot_small-90M", ignore_mismatched_sizes=True)
 
 train_dataset = dialog_ds(train, tokenizer, max_len=MAX_LENGTH)
 val_dataset = dialog_ds(val, tokenizer, max_len=MAX_LENGTH)
