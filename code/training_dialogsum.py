@@ -43,7 +43,7 @@ test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )[:5]
 output_dir = Path("output").absolute()
-RUN_NAME = "dialogsum_trainer_test"
+RUN_NAME = "t5-small"
 run_path = Path(output_dir / RUN_NAME).absolute()
 run_path.mkdir(parents=True, exist_ok=True)
 MAX_LENGTH = 512
@@ -61,6 +61,10 @@ else:
         device = torch.device("cpu")
 print(device)
 
+def pre_process(row:pd.Series):
+    inputs = tokenizer(row["text"], max_length=MAX_LENGTH, truncation=True, padding=True, return_tensors="pt")
+    inputs["labels"] = tokenizer(row["summary"], max_length=MAX_LENGTH, truncation=True, padding=True, return_tensors="pt")["input_ids"]
+    return inputs
 
 class dialog_ds(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
@@ -72,7 +76,7 @@ class dialog_ds(Dataset):
 
     def __len__(self):
         return len(self.text)
-
+    
     def __getitem__(self, idx):
         inputs = self.tokenizer.encode_plus(
             self.text[idx],
@@ -108,6 +112,7 @@ data_collator = DataCollatorForSeq2Seq(
     return_tensors="pt",
 )
 
+
 rouge = evaluate.load("rouge", module_type="metric")
 
 
@@ -142,12 +147,12 @@ training_args = Seq2SeqTrainingArguments(
     output_dir=run_path,
     run_name=RUN_NAME,
     predict_with_generate=True,
-    # per_device_train_batch_size=BATCH_SIZE,
-    # per_device_eval_batch_size=BATCH_SIZE,
+    per_device_train_batch_size=BATCH_SIZE,
+    per_device_eval_batch_size=BATCH_SIZE,
     logging_strategy="epoch",
     resume_from_checkpoint=True,
-    auto_find_batch_size=True,
     save_strategy="epoch",
+    metric_for_best_model="rouge2",
     
     
 )
