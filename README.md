@@ -13,12 +13,12 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-2. Inside `dialogsum.py`,
+2. Inside `training_dialogsum.py`,
 
 3. To train the model, use the following code (just run dialogsum.py):
 
 ```
-nohup python3 /home/ubuntu/Final--Project-Group4/code/dialogsum.py &
+nohup python3 /home/ubuntu/Final--Project-Group4/code/training_dialogsum.py &
 ```
 
 nohup allows our scripts to keep running even if the ssh connection closes to our EC2
