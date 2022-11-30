@@ -17,11 +17,12 @@ from transformers import (
     Seq2SeqTrainer,
     Seq2SeqTrainingArguments,
     DataCollatorForSeq2Seq,
+    EvalPrediction,
 )
-from evaluate import load
+from transformers.trainer_utils import get_last_checkpoint
+import evaluate
 import json
 from torch.utils.data import Dataset
-from datasets import load_metric
 import torch
 import gc
 from tqdm import tqdm
@@ -34,18 +35,23 @@ warnings.filterwarnings("ignore")
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:16]
+)[:25]
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:16]
+)[:10]
 test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)[:16]
+)[:5]
 output_dir = Path("output").absolute()
 RUN_NAME = "dialogsum_trainer_test"
+run_path = Path(output_dir / RUN_NAME).absolute()
+run_path.mkdir(parents=True, exist_ok=True)
 MAX_LENGTH = 512
 EPOCHS = 3
+BATCH_SIZE = 4
 
+
+print(output_dir)
 if torch.cuda.is_available():
     device = torch.device("cuda")
 else:
@@ -56,7 +62,6 @@ else:
 print(device)
 
 
-
 class dialog_ds(Dataset):
     def __init__(self, dataframe, tokenizer, max_len):
         self.id = dataframe["id"]
@@ -64,33 +69,6 @@ class dialog_ds(Dataset):
         self.summary = dataframe["summary"].tolist()
         self.tokenizer = tokenizer
         self.max_len = max_len
-        # self.text_tokenized = [
-        #     tokenizer(
-        #         self.text[i],
-        #         padding=True,
-        #         max_length=max_len,
-        #         truncation=True,
-        #         return_tensors="pt",
-        #     )
-        #     for i in range(len(self.text))
-        # ]
-        # self.summary_tokenized = [
-        #     tokenizer(
-        #         self.summary[i],
-        #         padding=True,
-        #         max_length=max_len,
-        #         truncation=True,
-        #         return_tensors="pt",
-        #     )
-        #     for i in range(len(self.summary))
-        # ]
-        # self.labels = [
-        #     self.summary_tokenized[i]["input_ids"]
-        #     for i in range(len(self.summary_tokenized))
-        # ]
-        # self.inputs = [
-        #     self.text_tokenized[i]["input_ids"] for i in range(len(self.text_tokenized))
-        # ]
 
     def __len__(self):
         return len(self.text)
@@ -103,16 +81,23 @@ class dialog_ds(Dataset):
             padding=True,
             return_tensors="pt",
         )
-        labels = self.tokenizer.encode_plus(self.summary[idx], max_length=self.max_len, truncation=True, padding=True, return_tensors="pt")
+        labels = self.tokenizer.encode_plus(
+            self.summary[idx],
+            max_length=self.max_len,
+            truncation=True,
+            padding=True,
+            return_tensors="pt",
+        )
         return {
             "input_ids": inputs["input_ids"].squeeze(),
             "labels": labels["input_ids"].squeeze(),
             "attention_mask": inputs["attention_mask"].squeeze(),
         }
-tokenizer = AutoTokenizer.from_pretrained("t5-small")
-model = AutoModelForSeq2SeqLM.from_pretrained(
-    "t5-small", ignore_mismatched_sizes=True
-)
+
+
+tokenizer = AutoTokenizer.from_pretrained("t5-small", use_fast=True)
+model = AutoModelForSeq2SeqLM.from_pretrained("t5-small", ignore_mismatched_sizes=True)
+
 train_dataset = dialog_ds(train, tokenizer, max_len=MAX_LENGTH)
 val_dataset = dialog_ds(val, tokenizer, max_len=MAX_LENGTH)
 test_dataset = dialog_ds(test, tokenizer, max_len=MAX_LENGTH)
@@ -123,7 +108,27 @@ data_collator = DataCollatorForSeq2Seq(
     return_tensors="pt",
 )
 
-perplexity = load("perplexity", module_type="metric")
+rouge = evaluate.load("rouge", module_type="metric")
+
+
+def get_metrics(evalPred: EvalPrediction):
+    predictions = evalPred.predictions
+    predictions = np.where(
+        predictions != -100, predictions, tokenizer.pad_token_id
+    ).astype(int)
+    predictions = tokenizer.batch_decode(
+        predictions, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    )
+    labels = evalPred.label_ids
+    labels = np.where(labels != -100, labels, tokenizer.pad_token_id).astype(int)
+    labels = tokenizer.batch_decode(
+        sequences=labels, skip_special_tokens=True, clean_up_tokenization_spaces=True
+    )
+    rouge.add_batch(references=labels, predictions=predictions)
+    rouge_results = rouge.compute()
+    return rouge_results
+
+
 training_args = Seq2SeqTrainingArguments(
     overwrite_output_dir=True,
     learning_rate=3e-5,
@@ -133,28 +138,35 @@ training_args = Seq2SeqTrainingArguments(
     adam_epsilon=1e-6,
     lr_scheduler_type="linear",
     num_train_epochs=EPOCHS,
-    logging_steps=50,
-    save_steps=100,
-    eval_steps=50,
     seed=42,
-    metric_for_best_model="eval_perplexity",
-    output_dir=output_dir,
+    output_dir=run_path,
     run_name=RUN_NAME,
-    include_inputs_for_metrics = True,
+    predict_with_generate=True,
+    # per_device_train_batch_size=BATCH_SIZE,
+    # per_device_eval_batch_size=BATCH_SIZE,
+    logging_strategy="epoch",
+    resume_from_checkpoint=True,
+    auto_find_batch_size=True,
+    save_strategy="epoch",
+    
+    
 )
 
-blender_trainer = Seq2SeqTrainer(
+trainer = Seq2SeqTrainer(
     model=model,
     args=training_args,
     train_dataset=train_dataset,
     eval_dataset=val_dataset,
-    compute_metrics=perplexity,
+    compute_metrics=get_metrics,
     data_collator=data_collator,
+    tokenizer=tokenizer,
 )
+last_checkpoint = get_last_checkpoint(run_path)
+if last_checkpoint is not None:
+    trainer.train(resume_from_checkpoint=last_checkpoint)
+else:
+    trainer.train()
+results = trainer.evaluate()
+trainer.save_metrics(split="all", metrics=results)
+trainer.save_model(run_path)
 
-blender_trainer.train()
-results = blender_trainer.evaluate()
-with open(output_dir / RUN_NAME / "results.json", "w") as f:
-    json.dump(results, f)
-
-blender_trainer.save_model(output_dir)
