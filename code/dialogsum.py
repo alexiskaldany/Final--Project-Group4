@@ -37,7 +37,7 @@ test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
 output_dir = Path("output").absolute()
-current_run = "ubuntu_10_epochs_full"
+current_run = "3_epochs_"
 previous_run = ""
 previous_checkpoint = output_dir / previous_run
 
@@ -45,7 +45,7 @@ previous_checkpoint = output_dir / previous_run
 ### Configs
 NUM_EPOCHS = 10
 MAX_LEN = 1024
-LOAD_FROM_CHECKPOINT = True
+LOAD_FROM_CHECKPOINT = False
 config = T5Config.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
 tokenizer = T5Tokenizer.from_pretrained("t5-small", model_max_length=MAX_LEN)
@@ -147,7 +147,8 @@ class dialogTrainer:
         self.number_of_steps = (len(self.train) + len(self.val)) * self.epochs + len(
             self.test
         )
-        self.tqdm_bar = tqdm(range(self.number_of_steps)).set_description(
+        self.tqdm_bar = tqdm(range(self.number_of_steps))
+        self.tqdm_bar.set_description(
             f"Using {self.device}"
         )
 
@@ -165,7 +166,7 @@ class dialogTrainer:
         rouge_2 = []
         rouge_l = []
         for index, input in enumerate(self.val):
-            self.tqdm_bar.update(1).set_postfix(f"Epoch {epoch} {self.mode} {index}")
+            self.tqdm_bar.update(1)
             input_ids = input["input_ids"].to(self.device)
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
