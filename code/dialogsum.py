@@ -216,9 +216,10 @@ class dialogTrainer:
             rouge1_list = []
             self.mode = "train"
             for index, input in enumerate(self.train):
-                self.tqdm_bar.update(1).set_postfix(
-                    f"Epoch {epoch} {self.mode} {index}"
-                )
+                self.tqdm_bar.update(1)
+                # .set_postfix(
+                #     f"Epoch {epoch} {self.mode} {index}"
+                # )
                 input_ids = input["input_ids"].to(self.device)
                 labels = input["labels"].to(self.device)
                 attention_mask = input["attention_mask"].to(self.device)
@@ -262,9 +263,7 @@ class dialogTrainer:
             row_dict = {
                 "summary": self.test.summary[index],
             }
-            self.tqdm_bar.update(1).set_postfix(
-                f"Epoch {self.epochs+1} {self.mode} {index}"
-            )
+            self.tqdm_bar.update(1)
             input_ids = input["input_ids"].to(self.device)
             labels = input["labels"].to(self.device)
             attention_mask = input["attention_mask"].to(self.device)
