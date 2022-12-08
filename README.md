@@ -3,6 +3,8 @@
 authors:
 #  - name: "@alexiskaldany"
 
+Paper
+https://docs.google.com/document/d/1Lx1EMlMHAwfDtLLiaYEw1n2GinRzF_VgMLQfimVE_G4/edit
 
 ## Setup
 
