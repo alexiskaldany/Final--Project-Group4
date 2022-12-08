@@ -3,7 +3,6 @@ Preprocessing data for EDA and PEA
 """
 
 import pandas as pd 
-import spacy 
 #### EDA
 
 train_df = pd.read_csv("data/train.csv").rename(columns={"dialogue": "text"})
