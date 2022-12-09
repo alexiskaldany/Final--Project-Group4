@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
-"""EDA 
-TO DO:
-eval_df visualizations
+"""EDA
+
 """
 
 
@@ -18,6 +17,8 @@ import numpy as np
 from collections import Counter
 import seaborn as sns
 from sklearn.feature_extraction.text import CountVectorizer
+import spacy 
+
 
 os.getcwd()
 
@@ -27,11 +28,15 @@ eval_path = "/content/drive/MyDrive/Colab Notebooks/HuggingFace/dataset/eval_df.
 train_df = pd.read_csv(train_path)
 eval_df = pd.read_csv(eval_path)
 
+"""## 1 Phase
+
+
+"""
+
 train_df.head()
 
 train_df['sum_text_ratio'].min(),train_df['sum_text_ratio'].max()
 
-import re
 def TextCleaning(text):
 
     pattern1 = re.compile(r'\<.*?\>')
@@ -58,9 +63,9 @@ train_df['text'][0]
 
 train_df['summary'][0]
 
-train_df['summary'].str.len().hist()
+#train_df['summary'].str.len().hist()
 train_df['text'].str.len().hist()
-plt.title('Histogram of Text Lenght vs Summary Lenght')
+plt.title('Histogram of Text Lenght')
 plt.legend(['summary','text'])
 plt.show()
 
@@ -69,6 +74,16 @@ train_df['text'].str.split().apply(lambda x : [len(i) for i in x]).map(lambda x:
 plt.title('Text vs Summary Average Word Lenght')
 plt.legend(['summary','text'])
 plt.show()
+
+train_df['sum_text_ratio'].hist()
+plt.title('Histogram of Text Lenght vs Summary Lenght')
+plt.show()
+
+sns.histplot(data=train_df, x="sum_text_ratio")
+plt.title('Sum text ratio scores histogram')
+plt.show()
+
+nltk.download('stopwords')
 
 stop= nltk.corpus.stopwords.words('english')
 
@@ -104,7 +119,6 @@ sns.barplot(x=y,y=x)
 plt.title('Top 10 Word Count in Summary')
 plt.show()
 
-import spacy 
 nlp = spacy.load("en_core_web_sm")
 
 def getting_pos(text):
@@ -167,3 +181,4 @@ plt.show()
 plot_top_ngrams_barchart(train_df['summary'],3)
 plt.title('Top trigrams in summary')
 plt.show()
+
