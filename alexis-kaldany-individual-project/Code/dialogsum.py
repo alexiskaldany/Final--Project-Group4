@@ -29,7 +29,7 @@ from tqdm import tqdm
 data_dir = Path("data").absolute()
 train = pd.read_csv(Path(data_dir / "train.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
-)
+)[:500]
 val = pd.read_csv(Path(data_dir / "validation.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
@@ -37,14 +37,14 @@ test = pd.read_csv(Path(data_dir / "test.csv")).rename(
     columns={"dialogue": "text", "summary": "summary"}
 )
 output_dir = Path("output").absolute()
-current_run = "3_epochs_"
+current_run = "with_summarize"
 previous_run = ""
 previous_checkpoint = output_dir / previous_run
 
 ###########
 ### Configs
-NUM_EPOCHS = 10
-MAX_LEN = 1024
+NUM_EPOCHS = 2
+MAX_LEN = 512
 LOAD_FROM_CHECKPOINT = False
 config = T5Config.from_pretrained("t5-small")
 model = T5ForConditionalGeneration.from_pretrained("t5-small", config=config)
@@ -60,7 +60,7 @@ class dialog_ds(Dataset):
         self.summary = dataframe["summary"].tolist()
         self.text_tokenized = [
             tokenizer(
-                self.text[i],
+            ("summarize:" + self.text[i]),
                 padding=True,
                 max_length=max_len,
                 truncation=True,

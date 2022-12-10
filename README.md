@@ -6,6 +6,8 @@ authors:
 Paper
 https://docs.google.com/document/d/1Lx1EMlMHAwfDtLLiaYEw1n2GinRzF_VgMLQfimVE_G4/edit
 
+https://docs.google.com/presentation/d/1qXiHq4h5PWZv0qgOAkOGxBWSCeZ54cf0E5LQpbUbZz0/edit#slide=id.g1b0346f706c_0_5
+
 ## Setup
 
 1. Create the virtual env and install the dependencies:
