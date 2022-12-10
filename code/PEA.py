@@ -6,8 +6,6 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from sklearn.tree import DecisionTreeRegressor
 from sklearn.model_selection import train_test_split
-from sklearn import linear_model
-from sklearn.metrics import accuracy_score
 from sklearn.tree import plot_tree
 import numpy as np
 from sklearn import metrics
@@ -57,12 +55,12 @@ print('Mean Absolute Error:', metrics.mean_absolute_error(y_test, predictions))
 print('Mean Squared Error:', metrics.mean_squared_error(y_test, predictions))
 print('Root Mean Squared Error:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
 
-plt.figure(figsize=(20,20), dpi=200)
+plt.figure(figsize=(30,30), dpi=150)
 plot_tree(regressor, feature_names=X.columns)
 plt.show()
-
-plt.plot(y_test, predictions, linewidth=1, label="original")
-plt.plot(y_test, predictions, linewidth=1.1, label="predicted")
+x_ax = range(len(y_test))
+plt.plot(x_ax, predictions, linewidth=1, label="original")
+plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
 plt.title("y-test and y-predicted data")
 plt.xlabel('X-axis')
 plt.ylabel('Y-axis')
@@ -87,4 +85,7 @@ X2 = sm.add_constant(X)
 est = sm.OLS(y, X2)
 est2 = est.fit()
 print(est2.summary())
+
+
+
 
