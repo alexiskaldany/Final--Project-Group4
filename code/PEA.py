@@ -12,6 +12,7 @@ from sklearn.tree import plot_tree
 import numpy as np
 from sklearn import metrics
 import seaborn as sns
+import statsmodels.api as sm
 
 data = pd.read_csv("/Users/sagartripathi/Documents/Final--Project-Group4/visualizations/eval_df.csv")
 print(data.head())
@@ -60,6 +61,15 @@ plt.figure(figsize=(20,20), dpi=200)
 plot_tree(regressor, feature_names=X.columns)
 plt.show()
 
+plt.plot(y_test, predictions, linewidth=1, label="original")
+plt.plot(y_test, predictions, linewidth=1.1, label="predicted")
+plt.title("y-test and y-predicted data")
+plt.xlabel('X-axis')
+plt.ylabel('Y-axis')
+plt.legend(loc='best',fancybox=True, shadow=True)
+plt.grid(True)
+plt.show()
+
 
 
 
@@ -73,12 +83,8 @@ target = 'sum_text_ratio'
 X = data.drop(["Unnamed: 0","id","text","summary","mode","pred_summary","loss","epoch","text_length","summary_length","sum_text_ratio"],axis=1)
 y = data[target]
 
-ols = linear_model.LinearRegression()
-model = ols.fit(X, y)
-print('Features                :  %s' % features)
-print('Regression Coefficients : ', [round(item, 2) for item in model.coef_])
-print('R-squared               :  %.2f' % model.score(X, y))
-print('Y-intercept             :  %.2f' % model.intercept_)
-print('')
-
+X2 = sm.add_constant(X)
+est = sm.OLS(y, X2)
+est2 = est.fit()
+print(est2.summary())
 
