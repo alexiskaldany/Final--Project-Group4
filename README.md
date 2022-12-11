@@ -41,7 +41,7 @@ nohup allows our scripts to keep running even if the ssh connection closes to ou
 - Standard Parameters
 ```
 MAX_LENGTH = 512
-EPOCHS = 10
+EPOCHS = 5
 BATCH_SIZE = 8
 learning_rate=3e-5,
 weight_decay=0.01,
