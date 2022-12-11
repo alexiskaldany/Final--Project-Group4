@@ -23,7 +23,7 @@ for var in target:
     # Regression Plot also by default includes
     # best-fitting regression line
     # which can be turned off via `fit_reg=False`
-    sns.regplot(x=data['sum_text_ratio'], y=data[var], data=data,line_kws={"color": "red"}).set(title=f'Regression plot of {var} and Petrol Consumption')
+    sns.regplot(x=data['sum_text_ratio'], y=data[var], data=data,line_kws={"color": "red"}).set(title=f'Regression plot of {var}')
     plt.show()
 
 
