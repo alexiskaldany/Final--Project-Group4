@@ -1,9 +1,7 @@
 # dialogsum
 
-authors:
-#  - name: "@alexiskaldany"
+### Final Paper and Presentation 
 
-Paper
 https://docs.google.com/document/d/1Lx1EMlMHAwfDtLLiaYEw1n2GinRzF_VgMLQfimVE_G4/edit
 
 https://docs.google.com/presentation/d/1qXiHq4h5PWZv0qgOAkOGxBWSCeZ54cf0E5LQpbUbZz0/edit#slide=id.g1b0346f706c_0_5
@@ -53,7 +51,6 @@ lr_scheduler_type="linear"
 
 
 ### "t5-small"
-
 
 - 10 epochs
 - rouge1: 0.5937
