@@ -35,104 +35,104 @@ plt.show()
 
 ################ Decision Tree reegressor ##################
 
-# get the locations
-X = data[['sum_text_ratio']]
-y = data['rouge1']
+# # get the locations
+# X = data[['sum_text_ratio']]
+# y = data['rouge1']
 
-# split the dataset
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
+# # split the dataset
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
 
-regressor = DecisionTreeRegressor(random_state=0)
+# regressor = DecisionTreeRegressor(random_state=0)
 
-# fit the regressor with X and Y data
-regressor.fit(X_train, y_train)
-predictions = regressor.predict(X_test)
+# # fit the regressor with X and Y data
+# regressor.fit(X_train, y_train)
+# predictions = regressor.predict(X_test)
 
-df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
+# df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
 
-print('Mean Absolute Error for rouge1:', metrics.mean_absolute_error(y_test, predictions))
-print('Mean Squared Error for rouge1:', metrics.mean_squared_error(y_test, predictions))
-print('Root Mean Squared Error for rouge1:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
-
-
-
-x_ax = range(len(y_test))
-plt.plot(x_ax, predictions, linewidth=1, label="original")
-plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
-plt.title("y-test and y-predicted data for rouge1")
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.legend(loc='best',fancybox=True, shadow=True)
-plt.grid(True)
-plt.show()
+# print('Mean Absolute Error for rouge1:', metrics.mean_absolute_error(y_test, predictions))
+# print('Mean Squared Error for rouge1:', metrics.mean_squared_error(y_test, predictions))
+# print('Root Mean Squared Error for rouge1:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
 
 
 
-######################### rouge 2 as target ###################
-
-X = data[['sum_text_ratio']]
-y = data['rouge2']
-
-# split the dataset
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
-
-regressor = DecisionTreeRegressor(random_state=0)
-
-# fit the regressor with X and Y data
-regressor.fit(X_train, y_train)
-predictions = regressor.predict(X_test)
-
-df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
-
-print('Mean Absolute Error for rouge2:', metrics.mean_absolute_error(y_test, predictions))
-print('Mean Squared Error for rouge2:', metrics.mean_squared_error(y_test, predictions))
-print('Root Mean Squared Error for rouge2:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
+# x_ax = range(len(y_test))
+# plt.plot(x_ax, predictions, linewidth=1, label="original")
+# plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
+# plt.title("y-test and y-predicted data for rouge1")
+# plt.xlabel('X-axis')
+# plt.ylabel('Y-axis')
+# plt.legend(loc='best',fancybox=True, shadow=True)
+# plt.grid(True)
+# plt.show()
 
 
 
-x_ax = range(len(y_test))
-plt.plot(x_ax, predictions, linewidth=1, label="original")
-plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
-plt.title("y-test and y-predicted data for rouge2")
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.legend(loc='best',fancybox=True, shadow=True)
-plt.grid(True)
-plt.show()
+# ######################### rouge 2 as target ###################
+
+# X = data[['sum_text_ratio']]
+# y = data['rouge2']
+
+# # split the dataset
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
+
+# regressor = DecisionTreeRegressor(random_state=0)
+
+# # fit the regressor with X and Y data
+# regressor.fit(X_train, y_train)
+# predictions = regressor.predict(X_test)
+
+# df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
+
+# print('Mean Absolute Error for rouge2:', metrics.mean_absolute_error(y_test, predictions))
+# print('Mean Squared Error for rouge2:', metrics.mean_squared_error(y_test, predictions))
+# print('Root Mean Squared Error for rouge2:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
 
 
-######################################## rougeL as target #####################
 
-X = data[['sum_text_ratio']]
-y = data['rougeL']
-
-# split the dataset
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
-
-regressor = DecisionTreeRegressor(random_state=0)
-
-# fit the regressor with X and Y data
-regressor.fit(X_train, y_train)
-predictions = regressor.predict(X_test)
-
-df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
-
-print('Mean Absolute Error for rougeL:', metrics.mean_absolute_error(y_test, predictions))
-print('Mean Squared Error for rougeL:', metrics.mean_squared_error(y_test, predictions))
-print('Root Mean Squared Error for rougeL:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
+# x_ax = range(len(y_test))
+# plt.plot(x_ax, predictions, linewidth=1, label="original")
+# plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
+# plt.title("y-test and y-predicted data for rouge2")
+# plt.xlabel('X-axis')
+# plt.ylabel('Y-axis')
+# plt.legend(loc='best',fancybox=True, shadow=True)
+# plt.grid(True)
+# plt.show()
 
 
-x_ax = range(len(y_test))
-plt.plot(x_ax, predictions, linewidth=1, label="original")
-plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
-plt.title("y-test and y-predicted data for rougeL")
-plt.xlabel('X-axis')
-plt.ylabel('Y-axis')
-plt.legend(loc='best',fancybox=True, shadow=True)
-plt.grid(True)
-plt.show()
+# ######################################## rougeL as target #####################
 
-################### end of Decision Tree ######################
+# X = data[['sum_text_ratio']]
+# y = data['rougeL']
+
+# # split the dataset
+# X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.03, random_state=0)
+
+# regressor = DecisionTreeRegressor(random_state=0)
+
+# # fit the regressor with X and Y data
+# regressor.fit(X_train, y_train)
+# predictions = regressor.predict(X_test)
+
+# df=pd.DataFrame({'Actual':y_test, 'Predicted':predictions})
+
+# print('Mean Absolute Error for rougeL:', metrics.mean_absolute_error(y_test, predictions))
+# print('Mean Squared Error for rougeL:', metrics.mean_squared_error(y_test, predictions))
+# print('Root Mean Squared Error for rougeL:', np.sqrt(metrics.mean_squared_error(y_test, predictions)))
+
+
+# x_ax = range(len(y_test))
+# plt.plot(x_ax, predictions, linewidth=1, label="original")
+# plt.plot(x_ax, y_test, linewidth=1.1, label="predicted")
+# plt.title("y-test and y-predicted data for rougeL")
+# plt.xlabel('X-axis')
+# plt.ylabel('Y-axis')
+# plt.legend(loc='best',fancybox=True, shadow=True)
+# plt.grid(True)
+# plt.show()
+
+# ################### end of Decision Tree ######################
 
 
 ################  start of linear regression #####################
