@@ -55,5 +55,4 @@ lr_scheduler_type="linear"
 - 10 epochs
 - rouge1: 0.5937
 
-### "blenderbot_small-90M"
 
